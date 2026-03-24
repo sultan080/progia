@@ -1,0 +1,128 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: tutors
+    // Document ID: tutorId (UID)
+    // Fields:
+    //   - uid: string (required)
+    //   - email: string (required)
+    //   - displayName: string
+    //   - photoURL: string
+    //   - subject: string
+    //   - plan: string (free/paid)
+    //   - createdAt: timestamp
+    //
+    // Collection: students
+    // Document ID: studentId
+    // Fields:
+    //   - tutorId: string (required)
+    //   - name: string (required)
+    //   - subject: string
+    //   - goal: string
+    //   - examType: string (VPR/OGE/EGE)
+    //   - taskCount: number
+    //   - completedTasks: list
+    //   - schedule: list
+    //   - createdAt: timestamp
+    //
+    // Collection: lessons
+    // Document ID: lessonId
+    // Fields:
+    //   - studentId: string (required)
+    //   - tutorId: string (required)
+    //   - date: timestamp
+    //   - topic: string
+    //   - grade: number
+    //   - homework: string
+    //   - files: list
+    //
+    // Collection: stats
+    // Document ID: global
+    // Fields:
+    //   - tutorsCount: number
+    //   - studentsCount: number
+    //   - lessonsCount: number
+    // ===============================================================
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isTutorOwner(data) {
+      return isAuthenticated() && request.auth.uid == data.tutorId;
+    }
+
+    function isValidTutor(data) {
+      return data.uid is string &&
+             data.email is string &&
+             data.plan in ['free', 'paid'];
+    }
+
+    function isValidStudent(data) {
+      return data.tutorId is string &&
+             data.name is string &&
+             data.name.size() > 0 &&
+             data.name.size() < 100 &&
+             data.examType in ['VPR', 'OGE', 'EGE'] &&
+             data.taskCount is number &&
+             data.taskCount >= 0 &&
+             (!('parentName' in data) || data.parentName is string) &&
+             (!('parentPhone' in data) || data.parentPhone is string) &&
+             (!('description' in data) || data.description is string);
+    }
+
+    function isValidLesson(data) {
+      return data.studentId is string &&
+             data.tutorId is string &&
+             data.topic is string &&
+             data.topic.size() > 0 &&
+             data.grade is number &&
+             data.grade >= 1 &&
+             data.grade <= 5;
+    }
+
+    // Rules
+    match /tutors/{tutorId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(tutorId) && isValidTutor(request.resource.data);
+      allow update: if isOwner(tutorId) && isValidTutor(request.resource.data);
+    }
+
+    match /students/{studentId} {
+      // Allow individual get if authenticated (for shared views, we might need to adjust this)
+      // For now, allow anyone to read a specific student if they have the ID
+      allow get: if true;
+      // Allow listing students only if they belong to the tutor
+      allow list: if isAuthenticated() && (resource == null || resource.data.tutorId == request.auth.uid);
+      
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.tutorId && isValidStudent(request.resource.data);
+      allow update: if isAuthenticated() && request.auth.uid == resource.data.tutorId && isValidStudent(request.resource.data);
+      allow delete: if isAuthenticated() && request.auth.uid == resource.data.tutorId;
+    }
+
+    match /lessons/{lessonId} {
+      // Allow individual get
+      allow get: if true;
+      // Allow listing lessons only if they belong to the tutor or the student being viewed
+      allow list: if true; // We'll keep this permissive for now to support shared student dashboards
+      
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.tutorId && isValidLesson(request.resource.data);
+      allow update: if isAuthenticated() && request.auth.uid == resource.data.tutorId && isValidLesson(request.resource.data);
+      allow delete: if isAuthenticated() && request.auth.uid == resource.data.tutorId;
+    }
+
+    match /stats/global {
+      allow read: if true;
+      allow write: if isAuthenticated(); // In a real app, this would be restricted to cloud functions or specific logic
+    }
+  }
+}

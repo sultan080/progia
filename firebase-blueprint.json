@@ -1,0 +1,83 @@
+{
+  "entities": {
+    "Tutor": {
+      "title": "Tutor",
+      "description": "A tutor user of the platform.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "subject": { "type": "string" },
+        "plan": { "type": "string", "enum": ["free", "paid"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "plan"]
+    },
+    "Student": {
+      "title": "Student",
+      "description": "A student managed by a tutor.",
+      "type": "object",
+      "properties": {
+        "tutorId": { "type": "string", "description": "UID of the tutor" },
+        "name": { "type": "string" },
+        "subject": { "type": "string" },
+        "goal": { "type": "string" },
+        "examType": { "type": "string", "enum": ["VPR", "OGE", "EGE"] },
+        "taskCount": { "type": "number" },
+        "completedTasks": { "type": "array", "items": { "type": "integer" } },
+        "schedule": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "day": { "type": "string" },
+              "time": { "type": "string" }
+            }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["tutorId", "name", "examType", "taskCount"]
+    },
+    "Lesson": {
+      "title": "Lesson",
+      "description": "A specific lesson session.",
+      "type": "object",
+      "properties": {
+        "studentId": { "type": "string" },
+        "tutorId": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "topic": { "type": "string" },
+        "grade": { "type": "number", "description": "Grade from 1 to 5" },
+        "homework": { "type": "string" },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "url": { "type": "string" }
+            }
+          }
+        }
+      },
+      "required": ["studentId", "tutorId", "date", "topic"]
+    }
+  },
+  "firestore": {
+    "/tutors/{tutorId}": {
+      "schema": "Tutor",
+      "description": "Tutor profiles"
+    },
+    "/students/{studentId}": {
+      "schema": "Student",
+      "description": "Students managed by tutors"
+    },
+    "/lessons/{lessonId}": {
+      "schema": "Lesson",
+      "description": "Lesson records"
+    }
+  }
+}
